@@ -17,8 +17,7 @@ bool do_system(const char *cmd)
  *   and return a boolean true if the system() call completed with success
  *   or false() if it returned a failure
 */
-
-    return true;
+    return system(cmd) == 0? true : false;
 }
 
 /**
@@ -59,6 +58,26 @@ bool do_exec(int count, ...)
  *   as second argument to the execv() command.
  *
 */
+    pid_t pid;
+    pid = fork();
+    if (pid == -1) {
+        // Fork failed
+        return -1;
+    } else if (pid == 0) {
+        // Child process
+        execv(command[0], command);
+        // If execv returns, it must have failed
+        exit(EXIT_FAILURE);
+    } else {
+        // Parent process
+        int status;
+        waitpid(pid, &status, 0);
+        if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+            return true; // Command executed successfully
+        } else {
+            return false; // Command failed
+        }
+    }   
 
     va_end(args);
 
@@ -95,6 +114,27 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
 */
 
     va_end(args);
+    pid_t pid = fork();
+    if(pid < 0){
+        perror("Fork failed");
+        return false;
+    } else if (pid == 0) {
+        // Child process
+        freopen(outputfile, "w", stdout); // Redirect stdout to outputfile
+        execv(command[0], command);
+        // If execv returns, it must have failed
+        perror("execv failed");
+        exit(EXIT_FAILURE);
+    } else {
+        // Parent process
+        int status;
+        waitpid(pid, &status, 0);
+        if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+            return true; // Command executed successfully
+        } else {
+            return false; // Command failed
+        }
+    }
 
     return true;
 }
