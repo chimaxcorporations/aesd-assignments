@@ -33,8 +33,19 @@ if [ ! -e ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ]; then
     cd linux-stable
     echo "Checking out version ${KERNEL_VERSION}"
     git checkout ${KERNEL_VERSION}
-
+   # Kconfig
+   # menu config
+   # kernel defconfig
+   #use the QEMU virt target
+   # can use defconfig ith no arguments to generate
     # TODO: Add your kernel build steps here
+    make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} mrproper
+    make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} defconfig
+    make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} all
+    make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} modules
+    make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} dtbs
+    make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} install
+    
 fi
 
 echo "Adding the Image in outdir"
@@ -62,6 +73,8 @@ fi
 
 # TODO: Make and install busybox
 
+make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} menuconfig
+make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} CONFIG_PREFIX=${OUTDIR}/rootfs install
 echo "Library dependencies"
 ${CROSS_COMPILE}readelf -a bin/busybox | grep "program interpreter"
 ${CROSS_COMPILE}readelf -a bin/busybox | grep "Shared library"
