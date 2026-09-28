@@ -11,21 +11,25 @@ int main (int argc, char *argv[]){
     syslog(LOG_ERR, "Incomplete number of arguments.");
     return EXIT_FAILURE;
   }
-
-  int fd = open(argv[1], O_WRONLY);
+  openlog("writer", LOG_PID, LOG_USER);
+  int fd = open(argv[1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
   if(fd < 0){
     syslog(LOG_ERR, "Error opening file %s: %s", argv[1], strerror(errno));
     printf("Error opening file %s: %s\n", argv[1], strerror(errno));
+    closelog();
     return EXIT_FAILURE;
   }
   if(write(fd, argv[2], strlen(argv[2]))< 0){
     syslog(LOG_ERR, "Error writing to file %s: %s", argv[1], strerror(errno));
     printf("Error writing to file %s: %s\n", argv[1], strerror(errno));
+    closelog();
     close(fd);
     return EXIT_FAILURE;
   }
   syslog(LOG_DEBUG, "Successfully wrote to file %s", argv[1]);
   printf("Successfully wrote to file %s\n", argv[1]);
+  closelog();
   close(fd);
+  
   return 0;
 }

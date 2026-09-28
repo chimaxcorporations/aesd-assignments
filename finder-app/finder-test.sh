@@ -45,6 +45,7 @@ then
 	then
 		echo "$WRITEDIR created"
 	else
+		echo "Failed to create $WRITEDIR"
 		exit 1
 	fi
 fi
