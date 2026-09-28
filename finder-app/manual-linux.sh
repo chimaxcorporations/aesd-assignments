@@ -157,6 +157,6 @@ ls -l ${OUTDIR}/rootfs/home
 # TODO: Create initramfs.cpio.gz
 
 cd ${OUTDIR}/rootfs
-find . | cpio -H newc -ov --owner 0:0 | gzip > ${OUTDIR}/initramfs.cpio.gz
+find . | cpio -H newc -ov --owner root:root | gzip > ${OUTDIR}/initramfs.cpio.gz
 # sudo chown -R root:root ${OUTDIR}/rootfs
 cp ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ${OUTDIR}/Image
