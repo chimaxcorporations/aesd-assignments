@@ -76,7 +76,7 @@ fi
 echo "Cross compiling writer application"
 make -C "${FINDER_APP_DIR}" clean
 make -C "${FINDER_APP_DIR}" build
-file writer
+# file writer
 
 echo "Adding the Image in outdir"
 
