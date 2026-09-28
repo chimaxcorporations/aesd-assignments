@@ -21,33 +21,53 @@ else
 	OUTDIR=$1
 	echo "Using passed directory ${OUTDIR} for output"
 fi
-
+echo "Creating output directory ${OUTDIR}"
 mkdir -p ${OUTDIR}
 
 cd "$OUTDIR"
-if [ ! -d "${OUTDIR}/linux-stable" ]; then
-    #Clone only if the repository does not exist.
-	echo "CLONING GIT LINUX STABLE VERSION ${KERNEL_VERSION} IN ${OUTDIR}"
-	git clone ${KERNEL_REPO} --depth 1 --single-branch --branch ${KERNEL_VERSION}
-fi
-if [ ! -e ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ]; then
-    cd linux-stable
-    echo "Checking out version ${KERNEL_VERSION}"
-    git checkout ${KERNEL_VERSION}
-   # Kconfig
-   # menu config
-   # kernel defconfig
-   #use the QEMU virt target
-   # can use defconfig ith no arguments to generate
-    # TODO: Add your kernel build steps here
-    make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} mrproper
-    make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} defconfig
-    make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} all
-    make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} modules
-    make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} dtbs
-    # make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} install
+echo "Current working directory: $(pwd)"
+# rm -rf ${OUTDIR}/linux-stable
 
+if [ ! -d "${OUTDIR}/linux-stable/.git" ]; then
+    echo "CLONING GIT LINUX STABLE VERSION ${KERNEL_VERSION} IN ${OUTDIR}"
+
+    git clone \
+        --depth 1 \
+        --single-branch \
+        --branch "${KERNEL_VERSION}" \
+        "${KERNEL_REPO}" \
+        "${OUTDIR}/linux-stable"
+else
+    echo "Linux kernel repository already exists - skipping clone"
 fi
+
+# if [ ! -d "${OUTDIR}/linux-stable" ]; then
+#     #Clone only if the repository does not exist.
+# 	echo "CLONING GIT LINUX STABLE VERSION ${KERNEL_VERSION} IN ${OUTDIR}"
+# 	git clone ${KERNEL_REPO} --depth 1 --single-branch --branch ${KERNEL_VERSION}
+# fi
+
+echo "Checking for kernel image"
+
+if [ ! -e ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ]; then
+    cd "${OUTDIR}/linux-stable"
+    echo "Checking out version ${KERNEL_VERSION}"
+    # git ls-remote https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git refs/tags/v5.15.163
+    # git checkout ${KERNEL_VERSION}
+    echo "Building the Linux Kernel"
+    make ARCH="${ARCH}" CROSS_COMPILE="${CROSS_COMPILE}" mrproper
+    make ARCH="${ARCH}" CROSS_COMPILE="${CROSS_COMPILE}" defconfig
+    make -j4 ARCH="${ARCH}" CROSS_COMPILE="${CROSS_COMPILE}" all
+    # make -j4 ARCH="${ARCH}" CROSS_COMPILE="${CROSS_COMPILE}" modules
+    # make -j4 ARCH="${ARCH}" CROSS_COMPILE="${CROSS_COMPILE}" dtbs
+else
+    echo "Kernel Image already exists - skipping kernel build"
+fi
+
+
+cp ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ${OUTDIR}/
+ls -l ${OUTDIR}
+
 cd ${FINDER_APP_DIR}
 if [ ! -f "writer.c" ]; then
     echo "writer.c not found in ${FINDER_APP_DIR}"
@@ -89,8 +109,8 @@ if [ ! -d ${OUTDIR}/rootfs/home/conf ]; then
     mkdir -p ${OUTDIR}/rootfs/home/conf
 fi
 # TODO: Make and install busybox
-
-make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} menuconfig
+echo "Configuring menufconfig for busybox"
+make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} defconfig
 make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE}
 
 make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} CONFIG_PREFIX=${OUTDIR}/rootfs install
@@ -117,7 +137,7 @@ cp -L ${SYSROOT}/lib64/libresolv.so.2 ${OUTDIR}/rootfs/lib64/
 
 # TODO: Copy the finder related scripts and executables to the /home directory
 # on the target rootfs
-
+echo "Copying finder related scripts and executables to the /home directory on the target rootfs"
 cp ${FINDER_APP_DIR}/writer ${OUTDIR}/rootfs/home/
 cp ${FINDER_APP_DIR}/finder-test.sh ${OUTDIR}/rootfs/home/
 cp -r ${FINDER_APP_DIR}/conf/username.txt ${OUTDIR}/rootfs/home/conf/
@@ -125,15 +145,18 @@ cp -r ${FINDER_APP_DIR}/conf/assignment.txt ${OUTDIR}/rootfs/home/conf/
 cp ${FINDER_APP_DIR}/autorun-qemu.sh ${OUTDIR}/rootfs/home/
 cp ${FINDER_APP_DIR}/start-qemu-app.sh ${OUTDIR}/rootfs/home/
 cp ${FINDER_APP_DIR}/start-qemu-terminal.sh ${OUTDIR}/rootfs/home/
+cp ${FINDER_APP_DIR}/finder.sh ${OUTDIR}/rootfs/home/
 
+ls -l ${OUTDIR}/rootfs/home
 
+# cp -r ${OUTDIR}/rootfs/home/ /tmp/aesd-autograder
 
 
 # TODO: Chown the root directory
-sudo chown -R root:root ${OUTDIR}/rootfs
+# sudo chown -R root:root ${OUTDIR}/rootfs
 # TODO: Create initramfs.cpio.gz
 
 cd ${OUTDIR}/rootfs
-find . | cpio -H newc -ov --owner root:root | gzip > ${OUTDIR}/initramfs.cpio.gz
-sudo chown -R root:root ${OUTDIR}/rootfs
+find . | cpio -H newc -ov --owner 0:0 | gzip > ${OUTDIR}/initramfs.cpio.gz
+# sudo chown -R root:root ${OUTDIR}/rootfs
 cp ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ${OUTDIR}/Image
