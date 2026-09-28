@@ -10,6 +10,7 @@ KERNEL_REPO=git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.gi
 KERNEL_VERSION=v5.15.163
 BUSYBOX_VERSION=1_33_1
 FINDER_APP_DIR=$(realpath $(dirname $0))
+echo "FINDER_APP_DIR is: ${FINDER_APP_DIR}"
 ARCH=arm64
 CROSS_COMPILE=aarch64-none-linux-gnu-
 
@@ -44,9 +45,18 @@ if [ ! -e ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ]; then
     make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} all
     make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} modules
     make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} dtbs
-    make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} install
-    
+    # make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} install
+
 fi
+cd ${FINDER_APP_DIR}
+if [ ! -f "writer.c" ]; then
+    echo "writer.c not found in ${FINDER_APP_DIR}"
+    exit 1
+fi
+echo "Cross compiling writer application"
+make -C "${FINDER_APP_DIR}" clean
+make -C "${FINDER_APP_DIR}" build
+file writer
 
 echo "Adding the Image in outdir"
 
@@ -71,13 +81,22 @@ else
     cd busybox
 fi
 
+if [ ! -d ${OUTDIR}/rootfs/home ]; then
+    mkdir -p ${OUTDIR}/rootfs/home
+fi
+
+if [ ! -d ${OUTDIR}/rootfs/home/conf ]; then
+    mkdir -p ${OUTDIR}/rootfs/home/conf
+fi
 # TODO: Make and install busybox
 
 make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} menuconfig
+make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE}
+
 make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} CONFIG_PREFIX=${OUTDIR}/rootfs install
 echo "Library dependencies"
-${CROSS_COMPILE}readelf -a bin/busybox | grep "program interpreter"
-${CROSS_COMPILE}readelf -a bin/busybox | grep "Shared library"
+${CROSS_COMPILE}readelf -a busybox | grep "program interpreter"
+${CROSS_COMPILE}readelf -a busybox | grep "Shared library"
 
 # TODO: Add library dependencies to rootfs
 
@@ -85,9 +104,26 @@ ${CROSS_COMPILE}readelf -a bin/busybox | grep "Shared library"
 
 # TODO: Clean and build the writer utility
 
+
 # TODO: Copy the finder related scripts and executables to the /home directory
 # on the target rootfs
 
-# TODO: Chown the root directory
+cp ${FINDER_APP_DIR}/writer ${OUTDIR}/rootfs/home/
+cp ${FINDER_APP_DIR}/finder-test.sh ${OUTDIR}/rootfs/home/
+cp -r ${FINDER_APP_DIR}/conf/username.txt ${OUTDIR}/rootfs/home/conf/
+cp -r ${FINDER_APP_DIR}/conf/assignment.txt ${OUTDIR}/rootfs/home/conf/
+cp ${FINDER_APP_DIR}/autorun-qemu.sh ${OUTDIR}/rootfs/home/
+cp ${FINDER_APP_DIR}/start-qemu-app.sh ${OUTDIR}/rootfs/home/
+cp ${FINDER_APP_DIR}/start-qemu-terminal.sh ${OUTDIR}/rootfs/home/
 
+
+
+
+# TODO: Chown the root directory
+sudo chown -R root:root ${OUTDIR}/rootfs
 # TODO: Create initramfs.cpio.gz
+
+cd ${OUTDIR}/rootfs
+find . | cpio -H newc -ov --owner root:root | gzip > ${OUTDIR}/initramfs.cpio.gz
+sudo chown -R root:root ${OUTDIR}/rootfs
+cp ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ${OUTDIR}/Image
